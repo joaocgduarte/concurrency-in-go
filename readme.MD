@@ -41,7 +41,7 @@
 # Bibliography
 1. Concurrency in Go - Katherine Cox-Buday - [buy here](https://www.amazon.com/Concurrency-Go-Tools-Techniques-Developers/dp/1491941197)
 
-Everything if this read me is based on this book by Katherine Cox-Buday. All the knowledge and nearly all examples comes from her book. This readme file is purely my annotations of the book and what I learned from it. All credits go to Katherine.
+Everything in this repository is based on this book by Katherine Cox-Buday. All the knowledge and nearly all examples comes from her book. This readme file is purely my annotations of the book and what I learned from it. All credits go to Katherine.
 
 # Why is concurrency hard?
 
