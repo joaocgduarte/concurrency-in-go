@@ -36,6 +36,7 @@
     + [The tee-channel](#the-tee-channel)
     + [The bridge-channel](#the-bridge-channel)
   * [The context package](#the-context-package)
+- [Concurrency at scale](#concurrency-at-scale)
 
 # Bibliography
 1. Concurrency in Go - Katherine Cox-Buday - [buy here](https://www.amazon.com/Concurrency-Go-Tools-Techniques-Developers/dp/1491941197)
@@ -974,3 +975,6 @@ Output:
 context was canceled
 finished
 ```
+
+# Concurrency At Scale
+- Yet to be done.
