@@ -86,7 +86,7 @@ Everything if this read me is based on this book by Katherine Cox-Buday. All the
 ## What is the difference between concurrency and parallelism?
 1. We write concurrent code that we except to run in parallel.
 2. We should be ignorant to the fact that a concurrent code is running in parallel (ideally).
-3. Concurrency is running/managing multiple computations at the same time, parallelims is running multple computations simultaneously (wtf)
+3. Concurrency is running/managing multiple computations at the same time, parallelims is running multple computations simultaneously
 
 ## What is CSP?
 1. Paper written by Charles Hoare (in 1978), from which Go takes it's principles in regards to concurrency, basically where channels come from.
