@@ -37,6 +37,7 @@
     + [The bridge-channel](#the-bridge-channel)
   * [The context package](#the-context-package)
 - [Concurrency at scale](#concurrency-at-scale)
+  * [Error Propagation](#error-propagation)
 
 # Introduction
 I decided to properly start learning concurrency in Golang. I had previously worked with it but didn't really understood it. So I bought Concurrency in Go by Katherine Cox-Buday and started to take notes of what I was learning. This is basically a **very** slimmed down version of the contents of the book. I think it's something useful and decided to share it. 
@@ -979,4 +980,102 @@ finished
 ```
 
 # Concurrency At Scale
-- Yet to be done.
+These techniques will allow us to make our systems more scalable.
+
+## Error Propagation
+1. Errors should always be first class citizens in our Go code.
+2. Errors shouldn't just be dumped in front of the user.
+3. We should try to make error handling an asset in our systems
+4. Errors should include the following critical information:
+	1. What happened;
+	2. When and where it happened;
+	3. A friendly user-facing message;
+	4. How the user can get more information.
+5. This allows us to know that if our error isn't wrapped, then it's an unhandled bug or error case that we didn't account for.
+6. It gives us a lot more context on our errors.
+
+**Example of a good error handling**
+```go
+// Error handler
+type MyError struct {
+	Inner error // wraps the original error
+	Message string
+	Stacktrace string
+	Misc map[string]interface{} // where we can put additional details such as a hash of the stack trace, an ID, any king of contextual information
+}
+
+func wrapError(err error, messagef string, msgArgs ...interface{}) {
+	return MyError{
+		Inner: err,
+		Message: fmt.Sprintf(messagef, msgArgs...)
+		Stacktrace: string(debug.Stack()),
+		Misc: make(map[string]interface{})
+	}
+}
+
+func (err MyError) Error() string {
+	return err.Message
+}
+
+// Let's call this next module "LowLevel" Module
+type LowLevelErr struct {
+	error
+}
+
+func isGloballyExec(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false, LowLevelErr{(wrapError(err, err.Error()))}
+	}
+	return info.Mode().Perm()&0100 == 0100, nil
+}
+
+// Let's call this next module "IntermediateLevel" Module
+
+type IntermediateErr struct {
+	error
+}
+
+func runJob(id string) error {
+	const jobBinPath := "/path/to/binary"
+	isExecutable, err := isGloballyExec(jobBinPath)
+	if err != nil {
+		return IntermediateErr{wrapError(
+			err,
+			"cannot run job %q: binaries are not available",
+			id,
+		)}
+	} else if isExecutable == false {
+		return wrapError(
+			nil,
+			"cannot run job %q: binaries are not executable",
+			id,
+		)
+	}
+	return exec.Command(jobBinPath, "--id="+id).Run()
+}
+
+// main
+func handleError(key int, err error, message string) {
+	log.SetPrefix(fmt.Sprintf("[logID: %v]:", key))
+	log.Printf("%#v", err)
+	fmt.Println("[%v] %v", key, message)
+}
+
+func main() {
+	log.SetOutput(os.Stdout)
+	log.SetFlags(log.Ltime|log.LUTC)
+	
+	err := runJob("1")
+	if err != nil {
+		msg := "Unexpected error, please contact someone"
+		if _, ok := err.(IntermediateErr); ok {
+			msg = err.Error()
+		}
+		handleError(1, err, msg)
+	}
+}
+
+Output:
+[logID: 1]: 22:00:00 main.IntermediateErr{error: main.MyError{Inner: main.LowLevelErr{error: main.MyError(Inner: (*os.PathError)(0xc4200123f0), Message: "stat: \"/path/to/binary\" no such file or directory", Stacktrace: "stacktrace")}}}
+```
