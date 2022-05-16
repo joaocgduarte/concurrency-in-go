@@ -38,59 +38,61 @@
   * [The context package](#the-context-package)
 - [Concurrency at scale](#concurrency-at-scale)
 
+# Introduction
+I decided to properly start learning concurrency in Golang. I had previously worked with it but didn't really understood it. So I bought Concurrency in Go by Katherine Cox-Buday and started to take notes of what I was learning. This is basically a **very** slimmed down version of the contents of the book. I think it's something useful and decided to share it. 
+
 # Bibliography
 1. Concurrency in Go - Katherine Cox-Buday - [buy here](https://www.amazon.com/Concurrency-Go-Tools-Techniques-Developers/dp/1491941197)
 
-Everything in this repository is based on this book by Katherine Cox-Buday. All the knowledge and nearly all examples comes from her book. This readme file is purely my annotations of the book and what I learned from it. All credits go to Katherine.
+Everything in this article is based on this book by Katherine Cox-Buday. All the knowledge and nearly all examples comes from her book. This article is purely my annotations of the book and what I learned from it. All credits go to Katherine.
 
 # Why is concurrency hard?
-
 ## Concurrency problems:
 ### Race Conditions
-1. When 2 or more operations must execute in the correct order, but the program has not been written so that this order is garanteed.
+1. When 2 or more operations must execute in the correct order, but the program has not been written so that this order is guaranteed.
 2. It shows up as a data race, when two threads are competing for the same variable or resource.
 
 ### Atomicity
-1. Something is atomic when, within a context, something is indivisible and uninterruptable by any other thing.
-2. If a variable/resource is inside a goroutine (context) and its not shared with other routines, then it's atomic. Changes to that resource are uninterruptable and indivisible
+1. Something is atomic when, within a context, something is indivisible and uninterruptible by any other thing.
+2. If a variable/resource is inside a goroutine (context) and its not shared with other routines, then it's atomic. Changes to that resource are uninterruptible and indivisible
 
 ### Memory Access Syncronization
-1. When there is a data race, we can wrap that **critical section** (when we need exclusive access to a shared resource) with a mutex, locking and unlocking the mutex. When we do this, we are syncronizing memory access.
+1. When there is a data race, we can wrap that **critical section** (when we need exclusive access to a shared resource) with a mutex, locking and unlocking the mutex. When we do this, we are synchronising memory access.
 2. This fixes the data race, but it doesn't fix the race condition (threads still compete for first write/read).
 3. It can create maintenance and performance problems.
-4. We should try to keep them only to critical sections. If it gets uneficient, make them broader.
+We should try to keep them only to critical sections. If it gets inefficient, make them broader.
 
 ### Deadlocks
 1. When all concurrent processes (threads or goroutines) are blocked, waiting for another routine to continue. The program will never resume without external intervention.
 2. Happens when a shared mutex is locked twice. by two different routines.
 3. *Coffman Conditions* help identity when we have a deadlock:
-	1. Mutual exlusions - When a concurrent process has exclusive rights to a shared resource
-	2. Wait for condition - When a process holds a resource and simultaneously is waiting for another resource
-	3. No preemption - when a resource held by the process can only be released by that process
+	1. *Mutual exclusions* - When a concurrent process has exclusive rights to a shared resource
+	2. *Wait for condition* - When a process holds a resource and simultaneously is waiting for another resource
+	3. *No preemption* - when a resource held by the process can only be released by that process
 	4. Circular wait - a routine waiting for a routine that is waiting for that routine.
 
 ### Livelocks
 1. When concurrent processes do nothing to advance the state of the program
 2. For instance, when trying to manually avoiding a deadlock, we might try to make the process avoid that other process. And so both of the processes get caught in a loop avoiding each other but not advancing
-3. Like when two people are staring at each other, trying to let the other one pass, going left and right, but not succeding.
+3. Like when two people are staring at each other, trying to let the other one pass, going left and right, but not succeeding.
 
 ### Starvation
 1. When a resource is too greedy and prevents other resources to do their job, for instance with a shared mutex in which it keeps it too much time locked.
-2. It might seem that some process is more efficient than the other, but the reality is that process is just consuming more resources (exlusive memory access to a resource) and leaving nothing to the other.
+2. It might seem that some process is more efficient than the other, but the reality is that process is just consuming more resources (exclusive memory access to a resource) and leaving nothing to the other.
 
-## When writting code that uses concurrency, try to answer these questions to the reader (of the func):
-1. Who is responsible for initializing the concurrency/goroutines? Me or the function?
-2. Who is responsible for the syncronization of memory?
+## When writing code that uses concurrency, try to answer these questions to the reader (of the func):
+1. Who is responsible for initialising the concurrency/goroutines? Me or the function?
+2. Who is responsible for the synchronisation of memory?
 3. How is the problem space mapped onto concurrency primitives?
 
 # Communicating Sequencial Processes (CSP)
 ## What is the difference between concurrency and parallelism?
 1. We write concurrent code that we except to run in parallel.
 2. We should be ignorant to the fact that a concurrent code is running in parallel (ideally).
-3. Concurrency is running/managing multiple computations at the same time, parallelims is running multple computations simultaneously
+3. Concurrency is running/managing multiple computations at the same time, parallelism is running multiple computations simultaneously.
 
 ## What is CSP?
-1. Paper written by Charles Hoare (in 1978), from which Go takes it's principles in regards to concurrency, basically where channels come from.
+1. Paper written by Charles Hoare (in 1978), from which Go takes its principles in regards to concurrency, basically where channels come from.
 2. Said that inputs and outputs needed to be primitives to facilitate communication between parallel processes (so as do channels)
 3. Made this communication easier to make without the need of exclusive memory access
 
@@ -98,13 +100,13 @@ Everything in this repository is based on this book by Katherine Cox-Buday. All 
 1. Golang provides channels (communication inputs and outputs between processes), goroutines (processes) and the select statement.
 2. Channels:
 	1. We can easily communicate between different goroutines.
-	2. There is less need to do memory access syncronizations.
+	2. There is less need to do memory access synchronisations.
 	3. Allows us to compose the outputs and inputs to other subsystems, and combine it with timeouts or cancellations.
 3. Goroutines:
 	1. Are very lightweight, we don't have to worry about creating one (unlike Java threads for instance)
 	2. We don't need to think about parallelism in our code, and allows us to model problems closer to their natural level of concurrency.
-	3. Are multiplexed onto OS Threads automatically and scheduled for us (Go does that). We don't have to worry about these optimizations.
-	4. Go scales all our gouroutines dinammically, we don't have to worry about specific OS/hardware limit, because it does it for us.
+	3. Are multiplexed onto OS Threads automatically and scheduled for us (Go does that). We don't have to worry about these optimisations.
+	4. Go scales all our gouroutines dynamically, we don't have to worry about specific OS/hardware limit, because it does it for us.
 4. Select:
 	1. Complement to channels
 	2. enables all the difficult bits of composing channels. Waits for events, selects messages from competing channels, continue if there are no messages waiting...
@@ -112,12 +114,12 @@ Everything in this repository is based on this book by Katherine Cox-Buday. All 
 ## Go's Philosophy on Concurrency
 1. "Share memory by communicating, don't communicate by sharing memory"
 2. Aim for simplicity. Use channels when possible, treat goroutines like a free resource.
-3. If necessary only, use memory access syncronization (mutexes).
+3. If necessary only, use memory access synchronisation (mutexes).
 
 # Go's Concurrency Building Blocks
 ## Goroutines
-1. Every program in Go has atleast one goroutine: the main routine.
-2. A cheap and basic unit of organization in a Go program.
+1. Every program in Go has at least one goroutine: the main routine.
+2. A cheap and basic unit of organisation in a Go program.
 3. It's a function that runs concurrently alongside other code.
 4. They run in the same memory address they were created in (share variables)
 5. The functions might not run if main ends before the goroutines start/print to stdout.
@@ -146,10 +148,10 @@ func sayHello() {
 	1. **Green threads** - threads managed by the language's runtime.
 	2. **OS Threads** - expensive
 3. Goroutines are scheduled into the green threads.
-4. The scheduler handles the distribution accross the available threads and ensures that when these goroutines become blockes, other goroutines can run.
+4. The scheduler handles the distribution accross the available threads and ensures that when these goroutines become blocks, other goroutines can run.
 
 ## The `sync` package
-1. Contain concurrency primitives that are useful for low level memory syncronization.
+1. Contain concurrency primitives that are useful for low level memory synchronisation.
 
 ### WaitGroup
 1. Allows us to wait for a set of concurrent operations to complete when we don't care about the result of the concurrent operation.
@@ -177,10 +179,10 @@ fmt.Println("all goroutines are complete.")
 ```
 
 ### Mutex and RWMutex
-1. Allows us to wrap critical sections and exclusively write to a memory address (memory syncronization).
+1. Allows us to wrap critical sections and exclusively write to a memory address (memory synchronisation).
 2. Try to only use in an encapsulated manner (in a struct that allows for concurrent writes for instance).
 3. **Locking the same mutex twice without Unlocking will cause a deadlock!**
-4. RWMutex is the same as regular Mutex, but constrains weather we want to syncronize in reading or writing.
+4. RWMutex is the same as regular Mutex, but constrains wether we want to synchronise in reading or writing.
 
 #### Example
 ```go
@@ -190,7 +192,7 @@ type ConcurrentCounter struct {
 }
 
 func (c *ConcurrentCounter) Increment() {
-	c.mu.Lock() // restricts the memory pointers here. Garantees only one write to value.
+	c.mu.Lock() // restricts the memory pointers here. Guarantees only one write to value.
 	value++
 	c.mu.Unlock() // Being called with defer is also nice.
 }
@@ -200,7 +202,7 @@ func (c *ConcurrentCounter) Increment() {
 1. A rendezvous for goroutines waiting for or announcing the occurence of an event/signal.
 
 #### Example
-This example makes a queue with limit of 5, and keeps adding to the queue. We want to remove from the queue every time the queue gets to lenght of 2, concurrently.
+This example makes a queue with limit of 5, and keeps adding to the queue. We want to remove from the queue every time the queue gets to length of 2, concurrently.
 
 ```go
 c := sync.NewCond(&sync.Mutex{})
@@ -294,7 +296,7 @@ creating new instance
 ```
 
 ## Channels
-1. Streams of data (input and output) that allow communication between goroutines. Derived from [Hoare's CSP](:/af18844ec13f4125af8db0869fba2867).
+1. Streams of data (input and output) that allow communication between goroutines. Derived from Hoare's CSP.
 2. Can be unidirectional or not (only read or write, or both). Useful so we can define who owns and who consumes the channel.
 
 ```go
@@ -320,18 +322,18 @@ fmt.Println(<-dataStream) // prints hello world. Waits until there is something 
 2. Buffered channels are a FIFO (first in first out) queue.
 3. Unbuffered channels are used for synchronous communication
 4. Unbuffered channels send data to other routines as soon as it receives it.
-5. BufferedQ channels have to be filled, and then the routines that consume the channel receive. 
+5. Buffered channels have to be filled, and then the routines that consume the channel receive. 
 6. Unbuffered Channel will block the goroutine whenever it is empty and waiting to be filled.
 7. Buffered Channel will also block the goroutine either when it is empty and waiting to be filled or it's on its full-capacity and there's a statement that want to fill the channel.
 
 ### Channel owners and channel consumers
 #### Owners should:
 1. Instantiate the channel.
-2. Perform writes, or pass ownsership to another goroutine.
+2. Perform writes, or pass ownership to another goroutine.
 3. Close the channel.
 4. Encapsulate 1,2 and 3 and expose them via a reader channel.
 
-This reduces the risk of deadlocks (by writting to a nil channel), panics (by closing a nil channel or writting to a closed channel, or closing a channel more than once)
+This reduces the risk of deadlocks (by writing to a nil channel), panics (by closing a nil channel or writing to a closed channel, or closing a channel more than once)
 
 #### Consumers should:
 1. Know when a channel is closed.
@@ -400,7 +402,7 @@ achieved 5 work cycles.
 
 # Concurrency Patterns in Go
 ## Confinement
-Means encapsulating the data, having onwers and consumers, so that the onwners can close the channel and garantee that the operations are atomic.
+Means encapsulating the data, having owners and consumers, so that the owners can close the channel and guarantee that the operations are atomic.
 
 **Example:**
 ```go
@@ -427,7 +429,7 @@ consumer(results)
 ```
 
 ## The for-select loop
-We can loop indefinitively and wait to be stopped, or loop through iteration variables, and do a select statement to return from the loop.
+We can loop indefinitely and wait to be stopped, or loop through iteration variables, and do a select statement to return from the loop.
 
 **Example:**
 ```go
@@ -442,7 +444,7 @@ for {
 ```
 
 ## How to prevent goroutine leaks?
-Although goroutines are very lightweight, they are not eliminated by the garbage collector, which means that we need to prevent them to run indefinetely. 
+Although goroutines are very lightweight, they are not eliminated by the garbage collector, which means that we need to prevent them to run indefinitely. 
 We do that by using a read only channel on the owners of the goroutine, and exiting the routine once that channel is closed. The consumers, or the parent routine that has access to the routine, that knows when that routine must end, are able to do it just by closing the channel.
 
 **Example:**
@@ -593,7 +595,7 @@ error: c doesnt exist
 ```
 
 ## Pipelines
-Pipelines are something that comes from functional programming. Are functions that call another function result. They can be a **Batch Pipeline** (an array as input and output), or a **Stream Pipeline** (single input as a input and output). Here is an example of a simple pipeline:
+Pipelines are something that comes from functional programming. Are functions that call another function result. They can be a **Batch Pipeline** (an array as input and output), or a **Stream Pipeline** (single input as an input and output). Here is an example of a simple pipeline:
 
 ```go
 add := func(nums []int, addition int) []int {
@@ -851,7 +853,7 @@ fanIn := func(
 We can now utilize this multiplexedStream, that combines all of the channels (that are running on multiple goroutines) into one.
 
 ### The or-done channel
-It's a way to improve readability. When utilizing this pattern, we don't need to check if the channel is closed when reading from it, because the function does it for us:
+It's a way to improve readability. When utilising this pattern, we don't need to check if the channel is closed when reading from it, because the function does it for us:
 
 ```go
 orDone := func(done, c <-chan interface{}) <-chan interface{} {
