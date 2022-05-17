@@ -38,6 +38,9 @@
   * [The context package](#the-context-package)
 - [Concurrency at scale](#concurrency-at-scale)
   * [Error Propagation](#error-propagation)
+  * [Timeouts and Cancelations](#timeouts-and-cancelations)
+  * [Heartbeats](#heartbeats)
+  * [Replicated requests](#replicated-requests)
 
 # Introduction
 I decided to properly start learning concurrency in Golang. I had previously worked with it but didn't really understood it. So I bought Concurrency in Go by Katherine Cox-Buday and started to take notes of what I was learning. This is basically a **very** slimmed down version of the contents of the book. I think it's something useful and decided to share it. 
@@ -1078,4 +1081,223 @@ func main() {
 
 Output:
 [logID: 1]: 22:00:00 main.IntermediateErr{error: main.MyError{Inner: main.LowLevelErr{error: main.MyError(Inner: (*os.PathError)(0xc4200123f0), Message: "stat: \"/path/to/binary\" no such file or directory", Stacktrace: "stacktrace")}}}
+```
+
+## Timeouts and cancelations
+We should always make sure all of our code is preemptable, so that if an operation is canceled at any given point, we can cancel the operation entirely.
+
+```go
+func someFunction() {
+	//... previous code
+	var value interface{}
+	select {
+	case <-done:
+		return
+	case value <-valueStream:
+	}
+	
+	result := reallyLongCalculation(done, value)
+	select {
+	case <-done:
+		return
+	case resultStream<-result:
+	}
+}
+
+func reallyLongCalculation(done <-chan interface{}, value interface{}) interface{} {
+	intermediateRes := longCalculation(done, value)
+	return longCalculation(done, intermediateRes)
+}
+```
+
+## Heartbeats
+Heartbeats are a way for concurrent processes to signal life to outside parties. We can had an heartbeat to our goroutine that will run at a time interval, or an heartbeat that will run at the beggining of a unit of work. It is not necessary to always add heartbeats, but they are useful when:
+* Some goroutine needs to be tested
+* The goroutine takes a lot of time, helps debugging and to see what are the goroutines that are unealthy.
+
+### Heartbeat that runs at a time interval:
+Useful for checking if a goroutine is healthy (if the channels are not closed and we don't get an heartbeat, for instance).
+
+```go
+doWork := func(
+	done <-chan interface{},
+	pulseInterval time.Duration,
+) (<-chan interface{}, <-chan time.Time) {
+	heartbeat := make(chan interface{})
+	results := make(chan time.Time)
+	go func() {
+		defer close(heartbeat)
+		defer close(results)
+		
+		pulse := time.Tick(pulseInterval)
+		workGen := time.Tick(2*pulseInterval)
+		
+		sendPulse := func() {
+			select {
+			case heartbeat <- struct{}{}:
+			default:
+				// we want to continue to run even if we are not heartbeating
+			}
+		}
+		sendResult := func(r time.Time) {
+			for {
+				select {
+				case <-done:
+					return
+				case <-pulse:
+					sendPulse()
+				case results := <- r:
+					return
+				}
+			}
+		}
+		
+		for {
+			select {
+			case <-done:
+				return
+			case <-pulse:
+				sendPulse()
+			case r := <-workGen:
+				sendResult(r)
+			}
+		}
+		return heartbeat, results
+	}()
+}
+
+done := make(chan interface{})
+time.AfterFunc(10*time.Second, func() { close(done) })
+
+const timeout := 2*time.Second
+heartbeat, results := doWork(done, timeout/2)
+for {
+	select {
+	case _, ok := <-heartbeat:
+		if ok == false {
+			return
+		}
+		fmt.Println("pulse")
+	case r, ok := <-result:
+		if ok == false {
+			return
+		}
+		fmt.Printf("results %v\n", r.Second())
+	case <-time.After(timeout):
+		return
+	}
+}
+
+Output:
+Pulse
+Pulse
+results 54
+Pulse
+Pulse
+results 56
+Pulse
+Pulse
+results 58
+Pulse
+```
+
+### Heartbeat that runs at the beggining of a unit of work:
+These are useful for testing a goroutine. The following is an example of a goroutine with this kind of heartbeat and how to unit test it.
+
+```go
+func DoWork(done <-chan interface{}, nums ...int) (<-chan interface{}, <-chan int) {
+	heartbeatStream := make(chan interface{}, 1)
+	workStream := make(chan int)
+	go func() {
+		defer close(heartbeatStream)
+		defer close(workStream)
+		
+		for _, n := range nums {
+			select {
+			case heartbeatStream <- struct{}{}
+			default:
+				// continue to run even if we can't run the heartbeat (buffered channel is full and someone should listen, we don't care if no)
+			}
+			
+			select {
+			case <-done:
+				return
+			case workStream <- n:
+			}
+		}
+	}()
+	return heartbeatStream, workStream
+}
+
+func TestDoWork_GeneratedAllNumbers(t *testing.T) {
+	done := make(chan interface{}),
+	defer close(done)
+	
+	intSlice := []int{1, 2, 3, 4, 5}
+	heartbeat, results := DoWork(done, intSlice...)
+	<-heartbeat // this makes sure that `DoWork` started it's process.
+	for i, expected := range intSlice {
+		select {
+		case r := <-results:
+			if expected != r {
+				t.Errorf("index %v: expected %v, but got %v", i, expected, r)
+			}
+		case <-time.After(1 * time.Second):
+			t.Fatal("test timed out")
+		}
+	}
+}
+```
+
+
+## Replicated requests
+This is about setting up multiple workers to provide the first response of multiple requests (the same requests). 
+
+```go
+doWork := func(done <-chan interface{}, id int, wg *sync.WaitGroup, result chan<- int) {
+        started := time.Now()
+        defer wg.Done()
+
+        // Simulate random load
+        simulatedLoadTime := time.Duration(1+rand.Intn(5)) * time.Second
+        select {
+        case <-done:
+        case <-time.After(simulatedLoadTime):
+        }
+
+        select {
+        case <-done:
+        case result <- id:
+        }
+
+        took := time.Since(started)
+        // Display how long handlers would have taken
+        if took < simulatedLoadTime {
+            took = simulatedLoadTime
+
+        }
+
+        fmt.Printf("%v took %v\n", id, took)
+    }
+
+    done := make(chan interface{})
+    result := make(chan int)
+
+    var wg sync.WaitGroup
+    wg.Add(10)
+
+    // Here we start 10 handlers to handle our requests.
+    for i := 0; i < 10; i++ {
+        go doWork(done, i, &wg, result)
+    }
+
+    // This line grabs the first returned value from the group of handlers.
+    firstReturned := <-result
+
+    // Here we cancel all the remaining handlers.
+    // This ensures they don’t continue to do unnecessary work.
+    close(done)
+    wg.Wait()
+
+    fmt.Printf("Received an answer from #%v\n", firstReturned)
 ```
