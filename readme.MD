@@ -197,7 +197,7 @@ type ConcurrentCounter struct {
 
 func (c *ConcurrentCounter) Increment() {
 	c.mu.Lock() // restricts the memory pointers here. Guarantees only one write to value.
-	value++
+	c.value++
 	c.mu.Unlock() // Being called with defer is also nice.
 }
 ```
